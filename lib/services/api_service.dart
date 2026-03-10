@@ -6,25 +6,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'websocket_service.dart';
 
 class ApiService {
-  // Use emulator host so Android emulator can reach the local server
+  // Backend server URL — update the Android IP to your hotspot host IP.
   static String get baseUrl {
     if (kIsWeb) {
       return 'http://localhost:4000/api';
     }
 
     if (Platform.isAndroid) {
-      // REAL ANDROID PHONE on OPPO F15 hotspot
-      return 'http://192.168.6.214:4000/api';
+      // Windows Mobile Hotspot host IP
+      return 'http://192.168.137.1:4000/api';
     }
 
     // Windows / macOS / Linux
     return 'http://localhost:4000/api';
   }
 
-  // For a real phone on the same Wi-Fi use: http://YOUR_PC_IP:4000/api
-
-  // Connection timeout - increase from 10 to 30 seconds to allow for database operations
+  // Connection timeout - 30 seconds to allow for database operations
   static const Duration connectionTimeout = Duration(seconds: 30);
+
+  static String lastErrorMessage = '';
 
   // ============ GENERIC HTTP METHODS ============
   /// Generic POST request
@@ -122,6 +122,7 @@ class ApiService {
     required String password,
   }) async {
     try {
+      lastErrorMessage = '';
       debugPrint('📤 Logging in: $email');
       final response = await http
           .post(
@@ -149,10 +150,17 @@ class ApiService {
         return true;
       }
 
+      lastErrorMessage = data['message'] ?? 'Login failed';
       debugPrint('❌ Login failed: ${data['message']}');
       return false;
-    } on SocketException catch (e) {
-      debugPrint('❌ Network error: $e');
+    } catch (e) {
+      if (e.toString().contains('timed out')) {
+        lastErrorMessage =
+            'Login request timed out. Check backend URL/server and try again.';
+      } else {
+        lastErrorMessage = 'Unable to reach server. Please try again.';
+      }
+      debugPrint('❌ Login error: $e');
       return false;
     }
   }
@@ -236,7 +244,7 @@ class ApiService {
       debugPrint('📊 Fetching ESP32 sensor readings...');
       
       // FORCE the correct IP - no multi-address attempts to avoid delays
-      const String espIp = '192.168.6.203';
+      const String espIp = '192.168.137.154';
       final url = Uri.parse('http://$espIp/api/readings');
       
       debugPrint('🔍 ESP32 Direct: http://$espIp/api/readings');
@@ -301,10 +309,8 @@ class ApiService {
     try {
       debugPrint('🔌 Turning ESP32 Relay 1 ON...');
       const List<String> urls = [
-        'http://192.168.6.203:80/api/relay1/on',     // Primary
-        'http://192.168.198.203:80/api/relay1/on',   // Secondary fallback
-        'http://192.168.1.100:80/api/relay1/on',
-        'http://wattbuddy.local:80/api/relay1/on',
+        'http://192.168.137.154:80/relay1/on',     // Primary
+        'http://wattbuddy.local:80/relay1/on',        // mDNS fallback
       ];
       
       for (final url in urls) {
@@ -337,10 +343,8 @@ class ApiService {
     try {
       debugPrint('🔌 Turning ESP32 Relay 1 OFF...');
       const List<String> urls = [
-        'http://192.168.6.203:80/api/relay1/off',    // Primary
-        'http://192.168.198.203:80/api/relay1/off',  // Secondary fallback
-        'http://192.168.1.100:80/api/relay1/off',
-        'http://wattbuddy.local:80/api/relay1/off',
+        'http://192.168.137.154:80/relay1/off',    // Primary
+        'http://wattbuddy.local:80/relay1/off',       // mDNS fallback
       ];
       
       for (final url in urls) {
@@ -373,10 +377,8 @@ class ApiService {
     try {
       debugPrint('🔌 Turning ESP32 Relay 2 ON...');
       const List<String> urls = [
-        'http://192.168.6.203:80/api/relay2/on',     // Primary
-        'http://192.168.198.203:80/api/relay2/on',   // Secondary fallback
-        'http://192.168.1.100:80/api/relay2/on',
-        'http://wattbuddy.local:80/api/relay2/on',
+        'http://192.168.137.154:80/relay2/on',     // Primary
+        'http://wattbuddy.local:80/relay2/on',        // mDNS fallback
       ];
       
       for (final url in urls) {
@@ -409,10 +411,8 @@ class ApiService {
     try {
       debugPrint('🔌 Turning ESP32 Relay 2 OFF...');
       const List<String> urls = [
-        'http://192.168.6.203:80/api/relay2/off',    // Primary
-        'http://192.168.198.203:80/api/relay2/off',  // Secondary fallback
-        'http://192.168.1.100:80/api/relay2/off',
-        'http://wattbuddy.local:80/api/relay2/off',
+        'http://192.168.137.154:80/relay2/off',    // Primary
+        'http://wattbuddy.local:80/relay2/off',       // mDNS fallback
       ];
       
       for (final url in urls) {
@@ -444,7 +444,7 @@ class ApiService {
   static Future<bool> turnESP32RelayOn() async {
     try {
       debugPrint('🔌 Turning ESP32 relay ON...');
-      const String esp32Url = 'http://10.168.130.214:80/relay/on';
+      const String esp32Url = 'http://192.168.137.154:80/relay/on';
       
       final response = await http
           .post(
@@ -468,7 +468,7 @@ class ApiService {
   static Future<bool> turnESP32RelayOff() async {
     try {
       debugPrint('🔌 Turning ESP32 relay OFF...');
-      const String esp32Url = 'http://10.168.130.214:80/relay/off';
+      const String esp32Url = 'http://192.168.137.154:80/relay/off';
       
       final response = await http
           .post(
@@ -492,7 +492,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getESP32RelayStatus() async {
     try {
       debugPrint('📊 Fetching ESP32 relay status...');
-      const String esp32Url = 'http://10.168.130.214:80/relay/status';
+      const String esp32Url = 'http://192.168.137.154:80/relay/status';
       
       final response = await http
           .get(
@@ -522,7 +522,7 @@ class ApiService {
   static Future<bool> setESP32User(String userId) async {
     try {
       debugPrint('👤 Setting ESP32 user: $userId');
-      final String esp32Url = 'http://10.168.130.214:80/user/set?userId=$userId';
+      final String esp32Url = 'http://192.168.137.154:80/user/set?userId=$userId';
       
       final response = await http
           .post(
@@ -546,7 +546,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getESP32Energy() async {
     try {
       debugPrint('⚡ Fetching ESP32 energy data...');
-      const String esp32Url = 'http://10.168.130.214:80/energy';
+      const String esp32Url = 'http://192.168.137.154:80/energy';
       
       final response = await http
           .get(

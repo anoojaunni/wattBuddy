@@ -114,7 +114,11 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
       
       Navigator.pushReplacementNamed(context, '/dashboard');
     } else {
-      _showSnack("Invalid credentials");
+      _showSnack(
+        ApiService.lastErrorMessage.isNotEmpty
+            ? ApiService.lastErrorMessage
+            : "Invalid credentials",
+      );
     }
   }
 
